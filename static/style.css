@@ -11,15 +11,6 @@ a:hover {
 #sidebar {
  background: #f0f0f0;
 
- /* -moz-border-radius: 0px 0px 20px 0px; */
- /* -moz-box-shadow: 5px 5px 5px #777; */
-
- /* -webkit-border-radius: 0px 0px 20px 0px; */
- /* -webkit-box-shadow: 5px 5px 5px #777; */
-
- /* border-radius: 0px 0px 20px 0px; */
- /* box-shadow: 5px 5px 5px #777; */
-
  border-right: 1px solid;
  border-bottom: 1px solid;
  font-size: 80%;
@@ -39,6 +30,10 @@ a:hover {
  margin-left: 135px;
  padding-left: 10px;
  padding-top: 10px;
- /* IE ignores body.width but does work if we set main.width... */
- width: 50em;
 }
+
+#main a {
+ color: #000;
+ text-decoration: none;
+}
+

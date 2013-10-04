@@ -53,6 +53,15 @@ class DividendEvent(object):
         self.shares = int(data.shares)
         self.amount = Decimal(data.amount)
 
+    @staticmethod
+    def header():
+        return ["date", "person", "broker", "accountType", "company",
+                "shares", "amount"]
+
+    def asList(self):
+        return [self.date, self.person, self.broker, self.accountType,
+                self.company, self.shares, self.amount]
+
 def dateCmp(ev1, ev2):
     return cmp(ev1.date, ev2.date)
 
@@ -133,13 +142,28 @@ def byYear(events, amountFunc):
     def vFunc(ev):
         return MONTHS[ev.date.month - 1]
 
-    return groupBy(
+    links = []
+    links.append(
+        [url_for("divEvents")] +
+        [url_for("divEvents", year = year) for year in bucketsH])
+
+    for month in bucketsV:
+        links.append(
+            [url_for("divEvents", month = month)] +
+            [url_for("divEvents", month = month, year = year) for year in bucketsH])
+
+    # header and footer row have the same links
+    links.append(links[0])
+
+    data = groupBy(
         events,
         bucketsH, hFunc,
         bucketsV, vFunc,
         amountFunc,
         "Month",
         )
+
+    return (data, links)
 
 def byTaxYear(events, amountFunc):
     def hFunc(ev):
@@ -159,7 +183,9 @@ def byTaxYear(events, amountFunc):
         else:
             return MONTH_APRIL_NEXT
 
-    return groupBy(
+    # FIXME: create links
+
+    data = groupBy(
         events,
         bucketsH, hFunc,
         bucketsV, vFunc,
@@ -167,14 +193,20 @@ def byTaxYear(events, amountFunc):
         "Month",
         )
 
-def renderTable(data):
+    return (data, None)
+
+def renderTable(data, links = None):
+    """ data is a list of lists (first list: rows, second: items) to be
+    rendered into an HTML table. links, if specified, must also be a list
+    of lists of exactly the same size as data, but containing URLs for
+    links to be used as targets for the cells in the table. a link can be
+    None which means no link will be generated for that cell. """
+
     res = []
 
     res.append("<table cellspacing=1 cellpadding=3 bgcolor=white>")
 
-    for i in range(len(data)):
-        row = data[i]
-
+    for i, row in enumerate(data):
         if i == 0:
             name = "th"
             color = "#dfdfdf"
@@ -188,11 +220,17 @@ def renderTable(data):
 
         s = "<tr bgcolor=%s>" % color
 
-        for it in row:
+        for j, it in enumerate(row):
             if isinstance(it, (float, Decimal)):
                 val = "%.2f" % float(it)
             else:
                 val = str(it)
+
+            if links:
+                link = links[i][j]
+
+                if link:
+                    val = "<a href=\"%s\">%s</a>" % (link, val)
 
             s += " <%s>%s</%s>" % (name, val, name)
 
@@ -203,6 +241,24 @@ def renderTable(data):
     res.append("</table>")
 
     return "\n".join(res)
+
+def getHTMLHeader():
+    return """
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+
+<head>
+<link rel=stylesheet type="text/css" href="%s">
+</head>
+
+<body>
+""" % url_for("static", filename = "style.css")
+
+def getHTMLFooter():
+    return """
+</body>
+</html>
+"""
 
 app = Flask(__name__)
 
@@ -239,13 +295,14 @@ def main():
     bucketH = request.args.get("bucketH", BUCKET_H_YEAR)
 
     if bucketH == BUCKET_H_YEAR:
-        res = byYear(events, amountFunc)
+        res, resLinks = byYear(events, amountFunc)
     elif bucketH == BUCKET_H_TAX_YEAR:
-        res = byTaxYear(events, amountFunc)
+        res, resLinks = byTaxYear(events, amountFunc)
     else:
         raise Exception("Unknown bucketH: %s" % bucketH)
 
     if request.args.get('csv') == "1":
+        # TODO: move this into renderCsv function
         s = []
         for row in res:
             s.append(",".join([str(x) for x in row]))
@@ -256,7 +313,7 @@ def main():
         response.headers["Content-Disposition"] = "attachment;filename=data.csv"
         return response
 
-    tbl = renderTable(res)
+    tbl = renderTable(res, resLinks)
 
     links = []
     indent = "&nbsp;&nbsp;"
@@ -318,28 +375,55 @@ def main():
         for c in sorted(set((ev.company for ev in allEvents))):
             links.append(makeLink("company", c, c))
 
-
-    header = """
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
-
-<head>
-<link rel=stylesheet type="text/css" href="%s">
-</head>
-
-<body>
-""" % url_for("static", filename = "style.css")
-
     sidebar = "<div id=sidebar>\n%s\n</div>" % "\n<br>".join(links)
     main = "<div id=main>\n%s\n%s\n</div>" % (
         tbl,
         makeLink("csv", "1", "<img src=\"%s\">" % url_for("static", filename = "excel.jpg")))
 
-    footer = """
-</body>
-</html>
-"""
-    return "\n\n".join([header, sidebar, main, footer])
+    return "\n\n".join([getHTMLHeader(), sidebar, main, getHTMLFooter()])
+
+@app.route("/div-events")
+def divEvents():
+    events = getDivEvents()
+
+    year = int(request.args.get("year", 0))
+    if year:
+        events = [ev for ev in events if ev.date.year == year]
+
+    taxYear = int(request.args.get("taxYear", 0))
+    if taxYear:
+        events = [ev for ev in events if taxYearOfDate(ev.date) == taxYear]
+
+    month = request.args.get("month")
+    if month:
+        events = [ev for ev in events if MONTHS[ev.date.month - 1] == month]
+
+    if request.args.get("taxYearMonth"):
+        # FIXME: impl; treats "April" >= day6, "April (next)" < day 6
+        raise Exception("taxYearMonth not implemented yet!")
+
+    res = [DividendEvent.header()]
+    res.extend([ev.asList() for ev in events])
+
+    if request.args:
+        filtersStr = ",".join(
+            ("%s=%s" % (key, val) for key,val in request.args.iteritems()))
+    else:
+        filtersStr = "None"
+
+    filtersStr = "<p>Filters: %s</p>" % filtersStr
+
+    # FIXME: support csv=1
+
+    tbl = renderTable(res)
+
+    links = []
+    links.append("<a href=\"%s\">Home</a>" % url_for("main"))
+
+    sidebar = "<div id=sidebar>\n%s\n</div>" % "\n<br>".join(links)
+    main = "<div id=main>\n%s\n%s\n\n</div>" % (filtersStr, tbl)
+
+    return "\n\n".join([getHTMLHeader(), sidebar, main, getHTMLFooter()])
 
 if __name__ == "__main__":
     app.run(debug = True)
