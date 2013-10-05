@@ -56,11 +56,12 @@ class DividendEvent(object):
     @staticmethod
     def header():
         return ["date", "person", "broker", "accountType", "company",
-                "shares", "amount"]
+                "shares", "amount", "amountPerShare"]
 
     def asList(self):
         return [self.date, self.person, self.broker, self.accountType,
-                self.company, self.shares, self.amount]
+                self.company, self.shares, self.amount,
+                perShareAmountFunc(self)]
 
 def dateCmp(ev1, ev2):
     return cmp(ev1.date, ev2.date)
