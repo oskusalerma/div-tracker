@@ -127,7 +127,7 @@ def nominalAmountFunc(ev):
     return ev.amount
 
 def perShareAmountFunc(ev):
-    return Decimal("%.10f" % (float(ev.amount) / ev.shares))
+    return Decimal("%.10f" % (float(ev.amount) * 100.0 / ev.shares))
 
 def byYear(events, amountFunc):
     def hFunc(ev):
