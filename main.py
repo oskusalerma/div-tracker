@@ -87,6 +87,18 @@ def taxYearOfDate(date):
 def filterBy(events, attrName, attrVals):
     return [x for x in events if getattr(x, attrName) in attrVals]
 
+def applyRequestFilters(events):
+    params = {}
+
+    for name in ["company", "person", "broker", "accountType"]:
+        val = request.args.get(name)
+
+        if val:
+            events = filterBy(events, name, [val])
+            params[name] = val
+
+    return (events, params)
+
 def getDivEvents():
     """ Get all dividend events, sorted by date. """
 
@@ -130,7 +142,7 @@ def nominalAmountFunc(ev):
 def perShareAmountFunc(ev):
     return Decimal("%.10f" % (float(ev.amount) * 100.0 / ev.shares))
 
-def byYear(events, amountFunc):
+def byYear(events, params, amountFunc):
     def hFunc(ev):
         return "%d" % ev.date.year
 
@@ -145,13 +157,13 @@ def byYear(events, amountFunc):
 
     links = []
     links.append(
-        [url_for("divEvents")] +
-        [url_for("divEvents", year = year) for year in bucketsH])
+        [url_for("divEvents", **params)] +
+        [url_for("divEvents", year = year, **params) for year in bucketsH])
 
     for month in bucketsV:
         links.append(
-            [url_for("divEvents", month = month)] +
-            [url_for("divEvents", month = month, year = year) for year in bucketsH])
+            [url_for("divEvents", month = month, **params)] +
+            [url_for("divEvents", month = month, year = year, **params) for year in bucketsH])
 
     # header and footer row have the same links
     links.append(links[0])
@@ -166,7 +178,7 @@ def byYear(events, amountFunc):
 
     return (data, links)
 
-def byTaxYear(events, amountFunc):
+def byTaxYear(events, params, amountFunc):
     def hFunc(ev):
         taxYear = taxYearOfDate(ev.date)
         return "%d-%d" % (taxYear, taxYear + 1)
@@ -266,26 +278,7 @@ app = Flask(__name__)
 @app.route("/")
 def main():
     allEvents = getDivEvents()
-    events = allEvents
-
-    company = request.args.get("company")
-    if company:
-        events = filterBy(events, "company", [company])
-
-    person = request.args.get("person")
-    if person:
-        events = filterBy(events, "person", [person])
-
-    broker = request.args.get("broker")
-    if broker:
-        events = filterBy(events, "broker", [broker])
-
-    accountType = request.args.get("accountType")
-    if accountType:
-        if accountType in [ACCOUNT_TYPE_ISA, ACCOUNT_TYPE_NORMAL]:
-            events = filterBy(events, "accountType", [accountType])
-        else:
-            raise Exception("Unknown accountType %s" % accountType)
+    events, params = applyRequestFilters(allEvents)
 
     perShare = request.args.get("perShare")
     if perShare == "1":
@@ -296,9 +289,9 @@ def main():
     bucketH = request.args.get("bucketH", BUCKET_H_YEAR)
 
     if bucketH == BUCKET_H_YEAR:
-        res, resLinks = byYear(events, amountFunc)
+        res, resLinks = byYear(events, params, amountFunc)
     elif bucketH == BUCKET_H_TAX_YEAR:
-        res, resLinks = byTaxYear(events, amountFunc)
+        res, resLinks = byTaxYear(events, params, amountFunc)
     else:
         raise Exception("Unknown bucketH: %s" % bucketH)
 
@@ -319,14 +312,8 @@ def main():
     links = []
     indent = "&nbsp;&nbsp;"
 
-    params = {
-        "accountType" : accountType,
-        "broker" : broker,
-        "bucketH" : bucketH,
-        "company" : company,
-        "perShare" : perShare,
-        "person" : person,
-        }
+    params["bucketH"] = bucketH
+    params["perShare"] = perShare
 
     def makeLink(key, val, text):
         if params.get(key) == val:
@@ -385,7 +372,8 @@ def main():
 
 @app.route("/div-events")
 def divEvents():
-    events = getDivEvents()
+    allEvents = getDivEvents()
+    events, params = applyRequestFilters(allEvents)
 
     year = int(request.args.get("year", 0))
     if year:
