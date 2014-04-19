@@ -1,9 +1,9 @@
 import collections
-import csv
-import datetime
 from decimal import Decimal
 
 from flask import Flask, request, url_for, make_response
+
+import divs
 
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December"]
@@ -15,56 +15,6 @@ BUCKET_H_TAX_YEAR = "taxYear"
 
 ACCOUNT_TYPE_NORMAL = "Normal"
 ACCOUNT_TYPE_ISA = "ISA"
-
-class Object(object):
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-def readCsvFile(filename):
-    """ Read CSV file, return data as a list of objects with named fields. """
-
-    f = open(filename, "r")
-    csvReader = csv.reader(f)
-
-    ret = []
-    headers = None
-
-    for row in csvReader:
-        if not headers:
-            headers = row
-        else:
-            assert len(row) == len(headers)
-
-            ret.append(Object(**dict(zip(headers, row))))
-
-    return ret
-
-class DividendEvent(object):
-    def __init__(self, data):
-        """ data is one of the objects from readCsvFile. """
-
-        dt = datetime.datetime.strptime(data.date, "%d.%m.%Y")
-        self.date = datetime.date(dt.year, dt.month, dt.day)
-
-        self.person = data.person
-        self.broker = data.broker
-        self.accountType = data.accountType
-        self.company = data.company
-        self.shares = int(data.shares)
-        self.amount = Decimal(data.amount)
-
-    @staticmethod
-    def header():
-        return ["date", "person", "broker", "accountType", "company",
-                "shares", "amount", "amountPerShare"]
-
-    def asList(self):
-        return [self.date, self.person, self.broker, self.accountType,
-                self.company, self.shares, self.amount,
-                perShareAmountFunc(self)]
-
-def dateCmp(ev1, ev2):
-    return cmp(ev1.date, ev2.date)
 
 def taxYearOfDate(date):
     """ Return UK tax year of given date. Examples:
@@ -99,15 +49,6 @@ def applyRequestFilters(events):
 
     return (events, params)
 
-def getDivEvents():
-    """ Get all dividend events, sorted by date. """
-
-    data = readCsvFile("/home/osku/info/investing/divs.csv")
-    events = [DividendEvent(x) for x in data]
-    eventsByDate = sorted(events, dateCmp)
-
-    return eventsByDate
-
 def groupBy(
     events, bucketsH, bucketHFunc, bucketsV, bucketVFunc, amountFunc, titleV):
     def defVal():
@@ -135,12 +76,6 @@ def groupBy(
         [sum(data[bucketH].values()) for bucketH in bucketsH])
 
     return ret
-
-def nominalAmountFunc(ev):
-    return ev.amount
-
-def perShareAmountFunc(ev):
-    return Decimal("%.10f" % (float(ev.amount) * 100.0 / ev.shares))
 
 def byYear(events, params, amountFunc):
     def hFunc(ev):
@@ -277,14 +212,14 @@ app = Flask(__name__)
 
 @app.route("/")
 def main():
-    allEvents = getDivEvents()
+    allEvents = divs.getDivEvents()
     events, params = applyRequestFilters(allEvents)
 
     perShare = request.args.get("perShare")
     if perShare == "1":
-        amountFunc = perShareAmountFunc
+        amountFunc = divs.perShareAmountFunc
     else:
-        amountFunc = nominalAmountFunc
+        amountFunc = divs.nominalAmountFunc
 
     bucketH = request.args.get("bucketH", BUCKET_H_YEAR)
 
@@ -372,7 +307,7 @@ def main():
 
 @app.route("/div-events")
 def divEvents():
-    allEvents = getDivEvents()
+    allEvents = divs.getDivEvents()
     events, params = applyRequestFilters(allEvents)
 
     year = int(request.args.get("year", 0))
@@ -391,7 +326,7 @@ def divEvents():
         # FIXME: impl; treats "April" >= day6, "April (next)" < day 6
         raise Exception("taxYearMonth not implemented yet!")
 
-    res = [DividendEvent.header()]
+    res = [divs.DividendEvent.header()]
     res.extend([ev.asList() for ev in events])
 
     if request.args:
