@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import csv
 import datetime
 from decimal import Decimal
@@ -16,10 +18,14 @@ def readCsvFile(filename):
     headers = None
 
     for row in csvReader:
+        # skip empty or commented out rows
+        if not row or row[0].startswith("#"):
+            continue
+
         if not headers:
             headers = row
         else:
-            assert len(row) == len(headers)
+            assert len(row) == len(headers), "Invalid row in data file: %s" % row
 
             ret.append(Object(**dict(zip(headers, row))))
 
@@ -66,3 +72,10 @@ def getDivEvents():
     eventsByDate = sorted(events, dateCmp)
 
     return eventsByDate
+
+if __name__ == "__main__":
+    events = getDivEvents()
+    print DividendEvent.header()
+
+    for ev in events:
+        print ev.asList()
