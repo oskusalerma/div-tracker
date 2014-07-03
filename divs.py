@@ -3,6 +3,7 @@
 import csv
 import datetime
 from decimal import Decimal
+import os
 
 class Object(object):
     def __init__(self, **kwargs):
@@ -67,7 +68,7 @@ def perShareAmountFunc(ev):
 def getDivEvents():
     """ Get all dividend events, sorted by date. """
 
-    data = readCsvFile("/home/osku/info/investing/divs.csv")
+    data = readCsvFile("%s/info/investing/divs.csv" % os.environ["HOME"])
     events = [DividendEvent(x) for x in data]
     eventsByDate = sorted(events, dateCmp)
 
