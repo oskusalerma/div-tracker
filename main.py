@@ -143,12 +143,28 @@ def byTaxYear(events, params, amountFunc):
 
     return (data, None)
 
+def renderCsv(data):
+    """ Format data (a list of lists (first list: column names, second:
+    items)) as csv and return a response object for said csv data. """
+
+    s = []
+    for row in data:
+        s.append(",".join([str(x) for x in row]))
+
+    csvData = "\n".join(s)
+
+    response = make_response(csvData)
+    response.headers["Content-Type"] = "text/csv"
+    response.headers["Content-Disposition"] = "attachment;filename=data.csv"
+
+    return response
+
 def renderTable(data, links = None):
-    """ data is a list of lists (first list: rows, second: items) to be
-    rendered into an HTML table. links, if specified, must also be a list
-    of lists of exactly the same size as data, but containing URLs for
-    links to be used as targets for the cells in the table. a link can be
-    None which means no link will be generated for that cell. """
+    """ data is a list of lists (first list: column names, second: items)
+    to be rendered into an HTML table. links, if specified, must also be a
+    list of lists of exactly the same size as data, but containing URLs
+    for links to be used as targets for the cells in the table. a link can
+    be None which means no link will be generated for that cell."""
 
     res = []
 
@@ -231,16 +247,7 @@ def main():
         raise Exception("Unknown bucketH: %s" % bucketH)
 
     if request.args.get('csv') == "1":
-        # TODO: move this into renderCsv function
-        s = []
-        for row in res:
-            s.append(",".join([str(x) for x in row]))
-
-        csvData = "\n".join(s)
-        response = make_response(csvData)
-        response.headers["Content-Type"] = "text/csv"
-        response.headers["Content-Disposition"] = "attachment;filename=data.csv"
-        return response
+        return renderCsv(res)
 
     tbl = renderTable(res, resLinks)
 
