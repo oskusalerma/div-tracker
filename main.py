@@ -246,7 +246,7 @@ def main():
     else:
         raise Exception("Unknown bucketH: %s" % bucketH)
 
-    if request.args.get('csv') == "1":
+    if request.args.get("csv") == "1":
         return renderCsv(res)
 
     tbl = renderTable(res, resLinks)
@@ -336,6 +336,9 @@ def divEvents():
     res = [divs.DividendEvent.header()]
     res.extend([ev.asList() for ev in events])
 
+    if request.args.get("csv") == "1":
+        return renderCsv(res)
+
     if request.args:
         filtersStr = ",".join(
             ("%s=%s" % (key, val) for key,val in request.args.iteritems()))
@@ -343,8 +346,6 @@ def divEvents():
         filtersStr = "None"
 
     filtersStr = "<p>Filters: %s</p>" % filtersStr
-
-    # FIXME: support csv=1
 
     tbl = renderTable(res)
 
