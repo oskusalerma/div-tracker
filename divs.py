@@ -10,7 +10,7 @@ class Object(object):
         self.__dict__.update(kwargs)
 
 def readCsvFile(filename):
-    """ Read CSV file, return data as a list of objects with named fields. """
+    """ Read CSV file, return list of DividendEvents. """
 
     f = open(filename, "r")
     csvReader = csv.reader(f)
@@ -18,9 +18,25 @@ def readCsvFile(filename):
     ret = []
     headers = None
 
+    # it's easy to make mistakes while editing the CSV file. dividends are by
+    # their very nature recurring events, so in practise they're always
+    # copy/pasted and the date/amount changed. it's far too easy to forget
+    # to change the date though, so some built-in error checking comes in handy.
+    #
+    # dividends should be listed in sections, each section separated by at least
+    # one empty line, and within each section, they should be listed in ascending
+    # date order.
+    startOfSection = True
+
     for row in csvReader:
-        # skip empty or commented out rows
-        if not row or row[0].startswith("#"):
+        # empty line
+        if not row:
+            startOfSection = True
+
+            continue
+
+        # comment
+        if row[0].startswith("#"):
             continue
 
         if not headers:
@@ -28,13 +44,21 @@ def readCsvFile(filename):
         else:
             assert len(row) == len(headers), "Invalid row in data file: %s" % row
 
-            ret.append(Object(**dict(zip(headers, row))))
+            obj = Object(**dict(zip(headers, row)))
+            ev = DividendEvent(obj)
+
+            if not startOfSection:
+                assert ev.date >= ret[-1].date, \
+                    "Dates within each section must be in ascending order: %s" % row
+
+            startOfSection = False
+            ret.append(ev)
 
     return ret
 
 class DividendEvent(object):
     def __init__(self, data):
-        """ data is one of the objects from readCsvFile. """
+        """ data is Object. """
 
         dt = datetime.datetime.strptime(data.date, "%d.%m.%Y")
         self.date = datetime.date(dt.year, dt.month, dt.day)
@@ -68,8 +92,7 @@ def perShareAmountFunc(ev):
 def getDivEvents():
     """ Get all dividend events, sorted by date. """
 
-    data = readCsvFile("%s/info/investing/divs.csv" % os.environ["HOME"])
-    events = [DividendEvent(x) for x in data]
+    events = readCsvFile("%s/info/investing/divs.csv" % os.environ["HOME"])
     eventsByDate = sorted(events, dateCmp)
 
     return eventsByDate
