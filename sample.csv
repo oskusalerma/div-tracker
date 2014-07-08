@@ -1,0 +1,19 @@
+
+date,person,broker,accountType,company,shares,amount
+
+1.1.2013,John,Charles Stanley,Normal,RDSA,5203,456.72
+5.3.2013,John,Charles Stanley,Normal,BP,3329,246.18
+7.3.2013,John,Charles Stanley,Normal,BP,3329,226.76
+7.6.2013,John,Charles Stanley,Normal,BP,3329,226.76
+9.6.2013,John,Charles Stanley,Normal,BP,3329,236.10
+7.9.2013,John,Charles Stanley,Normal,BP,3329,227.23
+6.1.2014,John,Charles Stanley,Normal,BP,3329,236.92
+
+24.1.2012,John,Charles Stanley,ISA,NG,723,140.01
+16.8.2012,John,Charles Stanley,ISA,NG,723,336.78
+
+6.7.2012,Holly,IWeb,ISA,TSCO,2577,259.75
+21.12.2012,Holly,IWeb,ISA,TSCO,2577,173.01
+5.7.2013,Holly,IWeb,ISA,TSCO,2577,259.76
+20.12.2013,Holly,IWeb,ISA,TSCO,2577,173.01
+#4.7.2014,Holly,IWeb,ISA,TSCO,2577,259.75

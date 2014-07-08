@@ -4,6 +4,7 @@ import csv
 import datetime
 from decimal import Decimal
 import os
+import os.path
 
 class Object(object):
     def __init__(self, **kwargs):
@@ -92,7 +93,22 @@ def perShareAmountFunc(ev):
 def getDivEvents():
     """ Get all dividend events, sorted by date. """
 
-    events = readCsvFile("%s/info/investing/divs.csv" % os.environ["HOME"])
+    filesToTry = [
+        "%s/info/investing/divs.csv" % os.environ["HOME"],
+        "%s/sample.csv" % os.path.dirname(__file__),
+        ]
+
+    events = None
+
+    for filename in filesToTry:
+        if os.path.isfile(filename):
+            events = readCsvFile(filename)
+
+            break
+
+    if events is None:
+        raise Exception("No data files found, tried %s" % filesToTry)
+
     eventsByDate = sorted(events, dateCmp)
 
     return eventsByDate
