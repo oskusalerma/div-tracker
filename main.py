@@ -224,6 +224,9 @@ def getHTMLFooter():
 </html>
 """
 
+def formatLink(linkUrl, text):
+    return "<a href=\"%s\">%s</a>" % (linkUrl, text)
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -263,7 +266,7 @@ def main():
         else:
             d = dict(params)
             d[key] = val
-            return "%s<a href=\"%s\">%s</a>" % (indent, url_for("main", **d), text)
+            return "%s%s" % (indent, formatLink(url_for("main", **d), text))
 
     with app.test_request_context():
         links.append("<a href=\"%s\">Home</a>" % url_for("main"))
@@ -352,8 +355,15 @@ def divEvents():
     links = []
     links.append("<a href=\"%s\">Home</a>" % url_for("main"))
 
+    d = dict(request.args)
+    d["csv"] = "1"
+
+    csvLink = formatLink(
+        url_for("divEvents", **d),
+        "<img src=\"%s\">" % url_for("static", filename = "excel.jpg"))
+
     sidebar = "<div id=sidebar>\n%s\n</div>" % "\n<br>".join(links)
-    main = "<div id=main>\n%s\n%s\n\n</div>" % (filtersStr, tbl)
+    main = "<div id=main>\n%s\n%s\n%s\n\n</div>" % (filtersStr, tbl, csvLink)
 
     return "\n\n".join([getHTMLHeader(), sidebar, main, getHTMLFooter()])
 
