@@ -262,47 +262,56 @@ def main():
 
     def makeLink(key, val, text):
         if params.get(key) == val:
-            return "%s<b>%s</b>" % (indent, text)
+            return "%s%s<b>%s</b>" % (indent, indent, text)
         else:
             d = dict(params)
             d[key] = val
-            return "%s%s" % (indent, formatLink(url_for("main", **d), text))
+            return "%s%s%s" % (indent, indent, formatLink(url_for("main", **d), text))
 
     with app.test_request_context():
         links.append("<a href=\"%s\">Home</a>" % url_for("main"))
 
         links.append("")
-        links.append("Year")
+        links.append("Grouping")
+
+        links.append("")
+        links.append("%sYear" % indent)
         links.append(makeLink("bucketH", BUCKET_H_YEAR, "Calendar"))
         links.append(makeLink("bucketH", BUCKET_H_TAX_YEAR, "Tax year"))
 
         links.append("")
-        links.append("Account type")
+        links.append("Display")
+
+        links.append("")
+        links.append("%sAmount" % indent)
+        links.append(makeLink("perShare", None, "Nominal"))
+        links.append(makeLink("perShare", "1", "Per share"))
+
+        links.append("")
+        links.append("Filters")
+
+        links.append("")
+        links.append("%sAccount type" % indent)
         links.append(makeLink("accountType", None, "All"))
         links.append(makeLink("accountType", ACCOUNT_TYPE_NORMAL, "Normal"))
         links.append(makeLink("accountType", ACCOUNT_TYPE_ISA, "ISA"))
 
         links.append("")
-        links.append("Person")
+        links.append("%sPerson" % indent)
         links.append(makeLink("person", None, "All"))
 
         for p in sorted(set((ev.person for ev in allEvents))):
             links.append(makeLink("person", p, p))
 
         links.append("")
-        links.append("Broker")
+        links.append("%sBroker" % indent)
         links.append(makeLink("broker", None, "All"))
 
         for p in sorted(set((ev.broker for ev in allEvents))):
             links.append(makeLink("broker", p, p))
 
         links.append("")
-        links.append("Amount")
-        links.append(makeLink("perShare", None, "Nominal"))
-        links.append(makeLink("perShare", "1", "Per share"))
-
-        links.append("")
-        links.append("Company")
+        links.append("%sCompany" % indent)
         links.append(makeLink("company", None, "All"))
 
         for c in sorted(set((ev.company for ev in allEvents))):
