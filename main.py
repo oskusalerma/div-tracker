@@ -16,6 +16,8 @@ BUCKET_H_TAX_YEAR = "taxYear"
 ACCOUNT_TYPE_NORMAL = "Normal"
 ACCOUNT_TYPE_ISA = "ISA"
 
+CELL_CONTENT_DETAILS = "details"
+
 def taxYearOfDate(date):
     """ Return UK tax year of given date. Examples:
 
@@ -58,8 +60,20 @@ def groupBy(
     # sum of dividends in that month
     data = collections.defaultdict(defVal)
 
+    def defValStr():
+        return collections.defaultdict(str)
+
+    # key = bucketH value, value = dict where key is bucketV value, value =
+    # cell contents for that cell (string)
+    cellContents = collections.defaultdict(defValStr)
+
     for ev in events:
-        data[bucketHFunc(ev)][bucketVFunc(ev)] += amountFunc(ev)
+        bucketH = bucketHFunc(ev)
+        bucketV = bucketVFunc(ev)
+
+        data[bucketH][bucketV] += amountFunc(ev)
+
+        cellContents[bucketH][bucketV] += "%s %s<br>" % (ev.company, amountFunc(ev))
 
     ret = [[titleV] + bucketsH]
 
@@ -67,7 +81,10 @@ def groupBy(
         val = [bucketV]
 
         for bucketH in bucketsH:
-            val.append(data[bucketH][bucketV])
+            if request.args.get("cellContent") == CELL_CONTENT_DETAILS:
+                val.append(cellContents[bucketH][bucketV])
+            else:
+                val.append(data[bucketH][bucketV])
 
         ret.append(val)
 
@@ -257,8 +274,11 @@ def main():
     links = []
     indent = "&nbsp;&nbsp;"
 
+    # TODO: check if it's worth the hassle of keeping params separate from
+    # request.args
     params["bucketH"] = bucketH
     params["perShare"] = perShare
+    params["cellContent"] = request.args.get("cellContent")
 
     def makeLink(key, val, text):
         if params.get(key) == val:
@@ -286,6 +306,11 @@ def main():
         links.append("%sAmount" % indent)
         links.append(makeLink("perShare", None, "Nominal"))
         links.append(makeLink("perShare", "1", "Per share"))
+
+        links.append("")
+        links.append("%sCell content" % indent)
+        links.append(makeLink("cellContent", None, "Sum"))
+        links.append(makeLink("cellContent", CELL_CONTENT_DETAILS, "Details"))
 
         links.append("")
         links.append("Filters")
