@@ -88,7 +88,7 @@ def nominalAmountFunc(ev):
     return ev.amount
 
 def perShareAmountFunc(ev):
-    return Decimal("%.4f" % (float(ev.amount) * 100.0 / ev.shares))
+    return Decimal("%.2f" % (float(ev.amount) * 100.0 / ev.shares))
 
 def getDivEvents():
     """ Get all dividend events, sorted by date. """
