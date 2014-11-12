@@ -42,7 +42,7 @@ def filterBy(events, attrName, attrVals):
 def applyRequestFilters(events):
     params = {}
 
-    for name in ["company", "person", "broker", "accountType"]:
+    for name in ["company", "person", "broker", "accountType", "isProjected"]:
         val = request.args.get(name)
 
         if val:
@@ -314,6 +314,12 @@ def main():
 
         links.append("")
         links.append("Filters")
+
+        links.append("")
+        links.append("%sStatus" % indent)
+        links.append(makeLink("isProjected", None, "All"))
+        links.append(makeLink("isProjected", "0", "Realized"))
+        links.append(makeLink("isProjected", "1", "Projected"))
 
         links.append("")
         links.append("%sAccount type" % indent)

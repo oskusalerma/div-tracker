@@ -70,16 +70,17 @@ class DividendEvent(object):
         self.company = data.company
         self.shares = int(data.shares)
         self.amount = Decimal(data.amount)
+        self.isProjected = data.isProjected
 
     @staticmethod
     def header():
         return ["date", "person", "broker", "accountType", "company",
-                "shares", "amount", "amountPerShare"]
+                "shares", "amount", "amountPerShare", "isProjected"]
 
     def asList(self):
         return [self.date, self.person, self.broker, self.accountType,
                 self.company, self.shares, self.amount,
-                perShareAmountFunc(self)]
+                perShareAmountFunc(self), self.isProjected]
 
 def dateCmp(ev1, ev2):
     return cmp(ev1.date, ev2.date)
