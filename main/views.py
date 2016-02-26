@@ -27,7 +27,8 @@ def url_for(name, **kwargs):
     url = reverse(name)
 
     if kwargs:
-        url += "?%s" % urllib.urlencode(kwargs)
+        d = dict(((key, val) for (key, val) in kwargs.iteritems() if val is not None))
+        url += "?%s" % urllib.urlencode(d)
 
     return url
 
