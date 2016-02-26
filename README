@@ -1,10 +1,10 @@
-div-tracker is a simple web app for keeping track of your dividend income.
-It makes it easy to see all of your dividend payments from various sources
-in one place, calculate totals for tax reporting purposes, etc.
+div-tracker is a simple Django web app for keeping track of your dividend
+income. It makes it easy to see all of your dividend payments from various
+sources in one place, calculate totals for tax reporting purposes, etc.
 
 All the data must be entered by you in a CSV file manually; the web app is
 read-only, it never modifies any of your data.
 
 Run ./initial-setup.sh one time to setup the virtualenv environment and
 install the needed dependencies, and after that use ./run.sh to launch the
-application and then go to http://127.0.0.1:5000/ in your webbrowser.
+application and then go to http://127.0.0.1:8000/ in your webbrowser.

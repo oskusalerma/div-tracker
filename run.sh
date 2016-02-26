@@ -1,4 +1,4 @@
 #!/bin/bash
 
 . venv/bin/activate
-python main.py
+./manage.py runserver

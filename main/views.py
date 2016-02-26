@@ -1,7 +1,10 @@
+from django.contrib.staticfiles.templatetags.staticfiles import static
+from django.core.urlresolvers import reverse
+from django.http import HttpResponse
+from django.shortcuts import render
+
 import collections
 from decimal import Decimal
-
-from flask import Flask, request, url_for, make_response
 
 import divs
 
@@ -17,6 +20,10 @@ ACCOUNT_TYPE_NORMAL = "Normal"
 ACCOUNT_TYPE_ISA = "ISA"
 
 CELL_CONTENT_DETAILS = "details"
+
+def url_for(name, **args):
+    # FIXME: implement properly
+    return reverse(name)
 
 def taxYearOfDate(date):
     """ Return UK tax year of given date. Examples:
@@ -39,11 +46,11 @@ def taxYearOfDate(date):
 def filterBy(events, attrName, attrVals):
     return [x for x in events if getattr(x, attrName) in attrVals]
 
-def applyRequestFilters(events):
+def applyRequestFilters(req, events):
     params = {}
 
     for name in ["company", "person", "broker", "accountType", "isProjected"]:
-        val = request.args.get(name)
+        val = req.GET.get(name)
 
         if val:
             events = filterBy(events, name, [val])
@@ -52,7 +59,7 @@ def applyRequestFilters(events):
     return (events, params)
 
 def groupBy(
-    events, bucketsH, bucketHFunc, bucketsV, bucketVFunc, amountFunc, titleV):
+        req, events, bucketsH, bucketHFunc, bucketsV, bucketVFunc, amountFunc, titleV):
     def defVal():
         return collections.defaultdict(Decimal)
 
@@ -81,7 +88,7 @@ def groupBy(
         val = [bucketV]
 
         for bucketH in bucketsH:
-            if request.args.get("cellContent") == CELL_CONTENT_DETAILS:
+            if req.GET.get("cellContent") == CELL_CONTENT_DETAILS:
                 val.append(cellContents[bucketH][bucketV])
             else:
                 val.append(data[bucketH][bucketV])
@@ -94,7 +101,7 @@ def groupBy(
 
     return ret
 
-def byYear(events, params, amountFunc):
+def byYear(req, events, params, amountFunc):
     def hFunc(ev):
         return "%d" % ev.date.year
 
@@ -109,19 +116,19 @@ def byYear(events, params, amountFunc):
 
     links = []
     links.append(
-        [url_for("divEvents", **params)] +
-        [url_for("divEvents", year = year, **params) for year in bucketsH])
+        [url_for("main:div-events", **params)] +
+        [url_for("main:div-events", year = year, **params) for year in bucketsH])
 
     for month in bucketsV:
         links.append(
-            [url_for("divEvents", month = month, **params)] +
-            [url_for("divEvents", month = month, year = year, **params) for year in bucketsH])
+            [url_for("main:div-events", month = month, **params)] +
+            [url_for("main:div-events", month = month, year = year, **params) for year in bucketsH])
 
     # header and footer row have the same links
     links.append(links[0])
 
     data = groupBy(
-        events,
+        req, events,
         bucketsH, hFunc,
         bucketsV, vFunc,
         amountFunc,
@@ -130,7 +137,7 @@ def byYear(events, params, amountFunc):
 
     return (data, links)
 
-def byTaxYear(events, params, amountFunc):
+def byTaxYear(req, events, params, amountFunc):
     def hFunc(ev):
         taxYear = taxYearOfDate(ev.date)
         return "%d-%d" % (taxYear, taxYear + 1)
@@ -148,10 +155,10 @@ def byTaxYear(events, params, amountFunc):
         else:
             return MONTH_APRIL_NEXT
 
-    # FIXME: create links
+    # TODO: create links
 
     data = groupBy(
-        events,
+        req, events,
         bucketsH, hFunc,
         bucketsV, vFunc,
         amountFunc,
@@ -225,7 +232,7 @@ def renderTable(data, links = None):
 
 def getHTMLHeader():
     return """
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -233,7 +240,7 @@ def getHTMLHeader():
 </head>
 
 <body>
-""" % url_for("static", filename = "style.css")
+""" % static("style.css")
 
 def getHTMLFooter():
     return """
@@ -244,29 +251,26 @@ def getHTMLFooter():
 def formatLink(linkUrl, text):
     return "<a href=\"%s\">%s</a>" % (linkUrl, text)
 
-app = Flask(__name__)
-
-@app.route("/")
-def main():
+def home(req):
     allEvents = divs.getDivEvents()
-    events, params = applyRequestFilters(allEvents)
+    events, params = applyRequestFilters(req, allEvents)
 
-    perShare = request.args.get("perShare")
+    perShare = req.GET.get("perShare")
     if perShare == "1":
         amountFunc = divs.perShareAmountFunc
     else:
         amountFunc = divs.nominalAmountFunc
 
-    bucketH = request.args.get("bucketH", BUCKET_H_YEAR)
+    bucketH = req.GET.get("bucketH", BUCKET_H_YEAR)
 
     if bucketH == BUCKET_H_YEAR:
-        res, resLinks = byYear(events, params, amountFunc)
+        res, resLinks = byYear(req, events, params, amountFunc)
     elif bucketH == BUCKET_H_TAX_YEAR:
-        res, resLinks = byTaxYear(events, params, amountFunc)
+        res, resLinks = byTaxYear(req, events, params, amountFunc)
     else:
         raise Exception("Unknown bucketH: %s" % bucketH)
 
-    if request.args.get("csv") == "1":
+    if req.GET.get("csv") == "1":
         return renderCsv(res)
 
     tbl = renderTable(res, resLinks)
@@ -275,10 +279,10 @@ def main():
     indent = "&nbsp;&nbsp;"
 
     # TODO: check if it's worth the hassle of keeping params separate from
-    # request.args
+    # req.GET
     params["bucketH"] = bucketH
     params["perShare"] = perShare
-    params["cellContent"] = request.args.get("cellContent")
+    params["cellContent"] = req.GET.get("cellContent")
 
     def makeLink(key, val, text):
         if params.get(key) == val:
@@ -286,105 +290,103 @@ def main():
         else:
             d = dict(params)
             d[key] = val
-            return "%s%s%s" % (indent, indent, formatLink(url_for("main", **d), text))
+            return "%s%s%s" % (indent, indent, formatLink(url_for("main:home", **d), text))
 
-    with app.test_request_context():
-        links.append("<a href=\"%s\">Home</a>" % url_for("main"))
+    links.append("<a href=\"%s\">Home</a>" % url_for("main:home"))
 
-        links.append("")
-        links.append("Grouping")
+    links.append("")
+    links.append("Grouping")
 
-        links.append("")
-        links.append("%sYear" % indent)
-        links.append(makeLink("bucketH", BUCKET_H_YEAR, "Calendar"))
-        links.append(makeLink("bucketH", BUCKET_H_TAX_YEAR, "Tax year"))
+    links.append("")
+    links.append("%sYear" % indent)
+    links.append(makeLink("bucketH", BUCKET_H_YEAR, "Calendar"))
+    links.append(makeLink("bucketH", BUCKET_H_TAX_YEAR, "Tax year"))
 
-        links.append("")
-        links.append("Display")
+    links.append("")
+    links.append("Display")
 
-        links.append("")
-        links.append("%sAmount" % indent)
-        links.append(makeLink("perShare", None, "Nominal"))
-        links.append(makeLink("perShare", "1", "Per share"))
+    links.append("")
+    links.append("%sAmount" % indent)
+    links.append(makeLink("perShare", None, "Nominal"))
+    links.append(makeLink("perShare", "1", "Per share"))
 
-        links.append("")
-        links.append("%sCell content" % indent)
-        links.append(makeLink("cellContent", None, "Sum"))
-        links.append(makeLink("cellContent", CELL_CONTENT_DETAILS, "Details"))
+    links.append("")
+    links.append("%sCell content" % indent)
+    links.append(makeLink("cellContent", None, "Sum"))
+    links.append(makeLink("cellContent", CELL_CONTENT_DETAILS, "Details"))
 
-        links.append("")
-        links.append("Filters")
+    links.append("")
+    links.append("Filters")
 
-        links.append("")
-        links.append("%sStatus" % indent)
-        links.append(makeLink("isProjected", None, "All"))
-        links.append(makeLink("isProjected", "0", "Realized"))
-        links.append(makeLink("isProjected", "1", "Projected"))
+    links.append("")
+    links.append("%sStatus" % indent)
+    links.append(makeLink("isProjected", None, "All"))
+    links.append(makeLink("isProjected", "0", "Realized"))
+    links.append(makeLink("isProjected", "1", "Projected"))
 
-        links.append("")
-        links.append("%sAccount type" % indent)
-        links.append(makeLink("accountType", None, "All"))
-        links.append(makeLink("accountType", ACCOUNT_TYPE_NORMAL, "Normal"))
-        links.append(makeLink("accountType", ACCOUNT_TYPE_ISA, "ISA"))
+    links.append("")
+    links.append("%sAccount type" % indent)
+    links.append(makeLink("accountType", None, "All"))
+    links.append(makeLink("accountType", ACCOUNT_TYPE_NORMAL, "Normal"))
+    links.append(makeLink("accountType", ACCOUNT_TYPE_ISA, "ISA"))
 
-        links.append("")
-        links.append("%sPerson" % indent)
-        links.append(makeLink("person", None, "All"))
+    links.append("")
+    links.append("%sPerson" % indent)
+    links.append(makeLink("person", None, "All"))
 
-        for p in sorted(set((ev.person for ev in allEvents))):
-            links.append(makeLink("person", p, p))
+    for p in sorted(set((ev.person for ev in allEvents))):
+        links.append(makeLink("person", p, p))
 
-        links.append("")
-        links.append("%sBroker" % indent)
-        links.append(makeLink("broker", None, "All"))
+    links.append("")
+    links.append("%sBroker" % indent)
+    links.append(makeLink("broker", None, "All"))
 
-        for p in sorted(set((ev.broker for ev in allEvents))):
-            links.append(makeLink("broker", p, p))
+    for p in sorted(set((ev.broker for ev in allEvents))):
+        links.append(makeLink("broker", p, p))
 
-        links.append("")
-        links.append("%sCompany" % indent)
-        links.append(makeLink("company", None, "All"))
+    links.append("")
+    links.append("%sCompany" % indent)
+    links.append(makeLink("company", None, "All"))
 
-        for c in sorted(set((ev.company for ev in allEvents))):
-            links.append(makeLink("company", c, c))
+    for c in sorted(set((ev.company for ev in allEvents))):
+        links.append(makeLink("company", c, c))
 
     sidebar = "<div id=sidebar>\n%s\n</div>" % "\n<br>".join(links)
     main = "<div id=main>\n%s\n%s\n</div>" % (
         tbl,
-        makeLink("csv", "1", "<img src=\"%s\">" % url_for("static", filename = "excel.jpg")))
+        makeLink("csv", "1", "<img src=\"%s\">" % static("excel.jpg")))
 
-    return "\n\n".join([getHTMLHeader(), sidebar, main, getHTMLFooter()])
+    return HttpResponse("\n\n".join([getHTMLHeader(), sidebar, main, getHTMLFooter()]))
 
-@app.route("/div-events")
-def divEvents():
+def divEvents(req):
     allEvents = divs.getDivEvents()
-    events, params = applyRequestFilters(allEvents)
+    events, params = applyRequestFilters(req, allEvents)
 
-    year = int(request.args.get("year", 0))
+    year = int(req.GET.get("year", 0))
     if year:
         events = [ev for ev in events if ev.date.year == year]
 
-    taxYear = int(request.args.get("taxYear", 0))
+    taxYear = int(req.GET.get("taxYear", 0))
     if taxYear:
         events = [ev for ev in events if taxYearOfDate(ev.date) == taxYear]
 
-    month = request.args.get("month")
+    month = req.GET.get("month")
     if month:
         events = [ev for ev in events if MONTHS[ev.date.month - 1] == month]
 
-    if request.args.get("taxYearMonth"):
-        # FIXME: impl; treats "April" >= day6, "April (next)" < day 6
+    if req.GET.get("taxYearMonth"):
+        # TODO: impl; treats "April" >= day6, "April (next)" < day 6
         raise Exception("taxYearMonth not implemented yet!")
 
     res = [divs.DividendEvent.header()]
     res.extend([ev.asList() for ev in events])
 
-    if request.args.get("csv") == "1":
+    if req.GET.get("csv") == "1":
         return renderCsv(res)
 
-    if request.args:
+    if req.GET:
         filtersStr = ",".join(
-            ("%s=%s" % (key, val) for key,val in request.args.iteritems()))
+            ("%s=%s" % (key, val) for key,val in req.GET.iteritems()))
     else:
         filtersStr = "None"
 
@@ -393,19 +395,16 @@ def divEvents():
     tbl = renderTable(res)
 
     links = []
-    links.append("<a href=\"%s\">Home</a>" % url_for("main"))
+    links.append("<a href=\"%s\">Home</a>" % url_for("main:home"))
 
-    d = dict(request.args)
+    d = dict(req.GET)
     d["csv"] = "1"
 
     csvLink = formatLink(
-        url_for("divEvents", **d),
-        "<img src=\"%s\">" % url_for("static", filename = "excel.jpg"))
+        url_for("main:div-events", **d),
+        "<img src=\"%s\">" % static("excel.jpg"))
 
     sidebar = "<div id=sidebar>\n%s\n</div>" % "\n<br>".join(links)
     main = "<div id=main>\n%s\n%s\n%s\n\n</div>" % (filtersStr, tbl, csvLink)
 
-    return "\n\n".join([getHTMLHeader(), sidebar, main, getHTMLFooter()])
-
-if __name__ == "__main__":
-    app.run(debug = True)
+    return HttpResponse("\n\n".join([getHTMLHeader(), sidebar, main, getHTMLFooter()]))
