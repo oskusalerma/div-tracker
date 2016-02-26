@@ -183,9 +183,9 @@ def renderCsv(data):
 
     csvData = "\n".join(s)
 
-    response = make_response(csvData)
-    response.headers["Content-Type"] = "text/csv"
-    response.headers["Content-Disposition"] = "attachment;filename=data.csv"
+    response = HttpResponse(content_type = "text/csv")
+    response["Content-Disposition"] = "attachment;filename=data.csv"
+    response.write(csvData)
 
     return response
 
