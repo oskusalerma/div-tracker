@@ -404,7 +404,7 @@ def divEvents(req):
     links = []
     links.append("<a href=\"%s\">Home</a>" % url_for("main:home"))
 
-    d = dict(req.GET)
+    d = req.GET.dict()
     d["csv"] = "1"
 
     csvLink = formatLink(
