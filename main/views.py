@@ -1,3 +1,5 @@
+import urllib
+
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
@@ -21,9 +23,13 @@ ACCOUNT_TYPE_ISA = "ISA"
 
 CELL_CONTENT_DETAILS = "details"
 
-def url_for(name, **args):
-    # FIXME: implement properly
-    return reverse(name)
+def url_for(name, **kwargs):
+    url = reverse(name)
+
+    if kwargs:
+        url += "?%s" % urllib.urlencode(kwargs)
+
+    return url
 
 def taxYearOfDate(date):
     """ Return UK tax year of given date. Examples:
