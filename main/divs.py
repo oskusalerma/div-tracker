@@ -114,6 +114,18 @@ def getDivEvents():
 
     return eventsByDate
 
+def getLastDivEventsByCompany(events):
+    """Given input of dividend events sorted by date, return a dict where key
+    is company name and value is last date that company has paid a
+    dividend. """
+
+    d = {}
+
+    for ev in events:
+        d[ev.company] = ev.date
+
+    return d
+
 if __name__ == "__main__":
     events = getDivEvents()
     print DividendEvent.header()

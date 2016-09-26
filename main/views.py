@@ -1,12 +1,12 @@
+from decimal import Decimal
+import collections
+import datetime
 import urllib
 
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.shortcuts import render
-
-import collections
-from decimal import Decimal
 
 import divs
 
@@ -259,7 +259,9 @@ def formatLink(linkUrl, text):
     return "<a href=\"%s\">%s</a>" % (linkUrl, text)
 
 def home(req):
+    today = datetime.date.today()
     allEvents = divs.getDivEvents()
+    lastDivs = divs.getLastDivEventsByCompany(allEvents)
     events, params = applyRequestFilters(req, allEvents)
 
     perShare = req.GET.get("perShare")
@@ -354,8 +356,21 @@ def home(req):
     links.append("")
     links.append("%sCompany" % indent)
     links.append(makeLink("company", None, "All"))
+    links.append("")
 
+    links.append("%s%s<i>Active</i>" % (indent, indent))
+
+    nonActiveCompanies = []
     for c in sorted(set((ev.company for ev in allEvents))):
+        if (today - lastDivs[c]).days < 365:
+            links.append(makeLink("company", c, c))
+        else:
+            nonActiveCompanies.append(c)
+
+    links.append("")
+    links.append("%s%s<i>Not active</i>" % (indent, indent))
+
+    for c in nonActiveCompanies:
         links.append(makeLink("company", c, c))
 
     sidebar = "<div id=sidebar>\n%s\n</div>" % "\n<br>".join(links)
